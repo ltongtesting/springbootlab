@@ -1,0 +1,85 @@
+
+name: CI
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    branches:
+      - '**'
+
+jobs:
+  build-test-scan:
+    runs-on: self-hosted
+
+    steps:
+      - name: Check out repository actions
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Show runner information
+        run: |
+          echo "GitHub Actions runner is working!"
+          echo "Hostname:"
+          hostname
+          echo "User:"
+          whoami
+          echo "Working directory:"
+          pwd
+
+      - name: Install Java and Maven
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          if ! command -v java >/dev/null 2>&1; then
+            echo "Java not found. Installing OpenJDK 17..."
+            sudo apt-get update
+            sudo apt-get install -y openjdk-17-jdk
+          else
+            echo "Java already installed:"
+            java -version
+          fi
+
+          if ! command -v mvn >/dev/null 2>&1; then
+            echo "Maven not found. Installing Maven..."
+            sudo apt-get update
+            sudo apt-get install -y maven
+          else
+            echo "Maven already installed:"
+            mvn -version
+          fi
+
+      - name: Verify build environment
+        run: |
+          echo "Java:"
+          java -version
+
+          echo "Maven:"
+          mvn -version
+
+      - name: Download Maven dependencies
+        run: |
+          mvn dependency:go-offline
+
+      - name: Build project
+        run: |
+          mvn clean package -DskipTests
+
+      - name: Run unit tests and generate code coverage
+        run: |
+          mvn test jacoco:report
+
+      - name: Verify JaCoCo coverage report
+        run: |
+          ls -la target/site/jacoco/
+          test -f target/site/jacoco/jacoco.xml
+
+      - name: Run SonarQube scan
+        run: |
+          mvn sonar:sonar \
+            -Dsonar.projectKey=springbootlab \
+            -Dsonar.projectVersion="${{ github.head_ref || github.ref_name }}" \
+            -Dsonar.host.url="${{ secrets.SONAR_HOST_URL }}" \
+            -Dsonar.token="${{ secrets.SONAR_TOKEN }}" \
+            -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
+
