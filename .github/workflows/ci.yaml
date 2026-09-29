@@ -74,6 +74,13 @@ jobs:
           ls -la target/site/jacoco/
           test -f target/site/jacoco/jacoco.xml
 
+      - name: Run Flyway database migrations
+        run: |
+          mvn flyway:migrate \
+            -Dflyway.url="${{ secrets.FLYWAY_URL }}" \
+            -Dflyway.user="${{ secrets.FLYWAY_USER }}" \
+            -Dflyway.password="${{ secrets.FLYWAY_PASSWORD }}"
+
       - name: Run SonarQube scan
         run: |
           mvn sonar:sonar \
